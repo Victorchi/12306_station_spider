@@ -39,7 +39,7 @@ def fetch_price(t,start,end,train_no,seat_types,src_name,des_name,train_code,fd)
         raise e
 
     prices = json.loads(s.content)
-
+    print '输出到price'
     price = prices['data']
     out = u"----------------------------------\n"
     out += train_code + u" " + src_name + u" " + des_name + u"\n"
@@ -90,26 +90,28 @@ def fetch_price(t,start,end,train_no,seat_types,src_name,des_name,train_code,fd)
 
     s = out.encode("utf-8")
     fd.write(s)
-    fd.write('\n')
+    fd.write("\n")
     print s
 
 
-
-def fetch_data(t,start,end,fd1,fd2,existed_code):
+def fetch_data(t,start,end,fd1,fd2,existed_codes):
     url = 'https://kyfw.12306.cn/otn/leftTicket/query?'
-    params = u"leftTicketDTO.train_date=" + t + u"&leftTicketDTO.from_station=" + start + u"&leftTicketDTO.to_station=" + end + u"&purpose_codes=ADULT"
-
+    params = u"leftTicketDTO.train_date=" + t + u"&leftTicketDTO.from_station=" + start + u"&leftTicketDTO.to_station="+ end + u"&purpose_codes=ADULT"
+    print params
+    # url = "https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date=2017-04-24&leftTicketDTO.from_station=VAP&leftTicketDTO.to_station=BOP&purpose_codes=ADULT"
     try:
         s = requests.get(url, params=params.encode('utf-8'), verify=False)
+        # s = requests.get(url, verify=False)
+        # print s
     except Exception, e:
         print 'requests url fail.', url
         return
 
     datas = json.loads(s.content)
-
-    # if datas['data'] == []:
-    #     print 'no train', t, start.encode("utf-8"), end.encode("utf-8")
-    #     return
+    # print datas
+    if datas['data'] == []:
+        print "no train", t, start.encode("utf-8"), end.encode("utf-8")
+        return
 
     for data in datas['data']:
         data = data['queryLeftNewDTO']
@@ -117,21 +119,25 @@ def fetch_data(t,start,end,fd1,fd2,existed_code):
         src_name = data["from_station_name"]
         des_name = data["end_station_name"]
         no = data["train_no"]
+        # print data,code,src_name,des_name,no
 
         is_fetch_station = False  # 这句话没有看明白
-        if no in existed_code:
-            if (src_name,des_name) in existed_code[no]:
+        if no in existed_codes:
+            if (src_name,des_name) in existed_codes[no]:
                 continue
             else:
-                is_fetch_station = True
-                existed_code[no] = set([(src_name,des_name)])
+                existed_codes[no].add((src_name,des_name))
+        else:
+            is_fetch_station = True
+            existed_codes[no] = set([(src_name, des_name)])
+
 
             time.sleep(2)
             fetch_price(t,data['from_station_no'],data['to_station_no'],no,data["seat_types"],data["from_station_name"],data['to_station_name'],code,fd2)
 
-            if is_fetch_station:
-                time.sleep(2)
-                fetch_station(t,start,end,no,code,fd1)
+        if is_fetch_station:
+            time.sleep(2)
+            fetch_station(t, start, end, no, code, fd1)
 
 
 def fetch_stations_code():
@@ -160,32 +166,32 @@ def fetch_stations_code():
 def deal_and_store(existed_codes):
     result = set()
     with open("15.routes.txt",'w') as fd:
-        for code in existed_code:
-            routes = existed_code[code]
+        for code in existed_codes:
+            routes = existed_codes[code]
             for route in routes:
                 if route not in result:
                     result.add(route)
                     out = route[0] + u" "+route[1] + u"\n"
                     fd.write(out.encode("utf-8"))
 
-def fetch_trains_stactic_info(existed_code):
+def fetch_trains_stactic_info(existed_codes):
     stations = fetch_stations_code()
 
     size = len(stations)
-    with open ('15.train_code','w') as fd1:
+    with open ('15.train_code.txt','w') as fd1:
         with open('15.train_price.txt','w') as fd2:
             for i in range(0,size-1):
                 for j in range(i+1,size):
-                    t = (datetime.datetime.now() + datetime.timedelta(days= 3)).strftime("%Y-&m-%d")
+                    t = (datetime.datetime.now() + datetime.timedelta(days= 3)).strftime("%Y-%m-%d")
                     src = stations[i][1]
                     des = stations[j][1]
-
+                    print src,des
                     time.sleep(2)
-                    fetch_data(t,src,des,fd1,fd2,existed_code)
+                    fetch_data(t, src, des, fd1, fd2, existed_codes)
 
-    return existed_code
+    return existed_codes
 if __name__ == '__main__':
 
-    existed_code = {}
-    fetch_trains_stactic_info(existed_code)
-    deal_and_store(existed_code)
+    existed_codes = {}
+    fetch_trains_stactic_info(existed_codes)
+    deal_and_store(existed_codes)

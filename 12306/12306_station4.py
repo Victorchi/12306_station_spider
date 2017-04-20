@@ -146,5 +146,5 @@ def fetch_data(t,start,end,fd):
 
 if __name__ == '__main__':
 
-    with open('13.txt','w') as fd:
+    with open('14.txt','wb') as fd:
         fetch_data((datetime.datetime.now() + datetime.timedelta(days = 3)).strftime('%Y-%m-%d'), 'BJP','SHH',fd)
